@@ -308,22 +308,22 @@ Tauri applications have two distinct layers that communicate via Inter-Process C
 ```
 ┌─────────────────────────────────────────────────────────┐
 │                    User's Device                        │
-│  ┌──────────────────────────────────────────────────┐  │
-│  │  Application Layer (SvelteKit/React)             │  │
-│  └────────────┬─────────────────────────────────────┘  │
+│  ┌──────────────────────────────────────────────────┐   │
+│  │  Application Layer (SvelteKit/React)             │   │
+│  └────────────┬─────────────────────────────────────┘   │
 │               │                                         │
-│  ┌────────────▼─────────────────────────────────────┐  │
-│  │  Sync Middleware (Conflict Resolution)           │  │
-│  │  - Last-write-wins for most data                 │  │
-│  │  - Manual resolution for critical conflicts      │  │
-│  └────────────┬─────────────────────────────────────┘  │
+│  ┌────────────▼─────────────────────────────────────┐   │
+│  │  Sync Middleware (Conflict Resolution)           │   │
+│  │  - Last-write-wins for most data                 │   │
+│  │  - Manual resolution for critical conflicts      │   │
+│  └────────────┬─────────────────────────────────────┘   │
 │               │                                         │
-│  ┌────────────▼─────────────────────────────────────┐  │
-│  │  Local Database (RxDB/SQLite)                    │  │
-│  │  - Full schema with all properties               │  │
-│  │  - Sync metadata (version vectors, timestamps)   │  │
-│  │  - Offline queue for pending changes             │  │
-│  └────────────┬─────────────────────────────────────┘  │
+│  ┌────────────▼─────────────────────────────────────┐   │
+│  │  Local Database (RxDB/SQLite)                    │   │
+│  │  - Full schema with all properties               │   │
+│  │  - Sync metadata (version vectors, timestamps)   │   │
+│  │  - Offline queue for pending changes             │   │
+│  └────────────┬─────────────────────────────────────┘   │
 │               │                                         │
 └───────────────┼─────────────────────────────────────────┘
                 │ HTTPS/WebSocket
@@ -331,16 +331,16 @@ Tauri applications have two distinct layers that communicate via Inter-Process C
                 │
 ┌───────────────▼─────────────────────────────────────────┐
 │              Cloud Sync Server (Optional)               │
-│  ┌──────────────────────────────────────────────────┐  │
-│  │  Sync API (Electric SQL / PowerSync / Custom)    │  │
-│  └────────────┬─────────────────────────────────────┘  │
+│  ┌──────────────────────────────────────────────────┐   │
+│  │  Sync API (Electric SQL / PowerSync / Custom)    │   │
+│  └────────────┬─────────────────────────────────────┘   │
 │               │                                         │
-│  ┌────────────▼─────────────────────────────────────┐  │
-│  │  PostgreSQL with Row-Level Security              │  │
-│  │  - Company isolation                             │  │
-│  │  - Property (Mandant) isolation                  │  │
-│  │  - Audit log for GoBD                            │  │
-│  └──────────────────────────────────────────────────┘  │
+│  ┌────────────▼─────────────────────────────────────┐   │
+│  │  PostgreSQL with Row-Level Security              │   │
+│  │  - Company isolation                             │   │
+│  │  - Property (Mandant) isolation                  │   │
+│  │  - Audit log for GoBD                            │   │
+│  └──────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -842,14 +842,14 @@ const WEG_ACCOUNT_PLAN = {
 │  │   - Cost allocation rules             │  │
 │  │   - GoBD compliance                   │  │
 │  └──────────────┬────────────────────────┘  │
-│                 │                            │
+│                 │                           │
 │  ┌──────────────▼────────────────────────┐  │
 │  │   Adapter Layer (Interface)           │  │
 │  │   - IAccountingProvider               │  │
 │  │   - IContactProvider                  │  │
 │  │   - IDocumentGenerator                │  │
 │  └──────────────┬────────────────────────┘  │
-│                 │                            │
+│                 │                           │
 │  ┌──────────────▼────────────────────────┐  │
 │  │   Implementation (Swappable)          │  │
 │  │   - Custom DB │ Odoo API │ ERPNext    │  │
