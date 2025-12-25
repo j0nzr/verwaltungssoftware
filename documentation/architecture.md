@@ -301,131 +301,322 @@ Tauri applications have two distinct layers that communicate via Inter-Process C
 
 ---
 
-## 4. Data Layer Architecture (Offline-First Sync)
+## 4. Data Layer Architecture: Separate Books per Property
 
-### Sync Strategy
+### Core Principle: Each Property = Separate Accounting Books
 
+In professional accounting, **each legal entity maintains separate books**. Since each WEG property is a separate legal entity, the architecture reflects this:
+
+**Desktop Storage:**
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    User's Device                        │
-│  ┌──────────────────────────────────────────────────┐   │
-│  │  Application Layer (SvelteKit/React)             │   │
-│  └────────────┬─────────────────────────────────────┘   │
-│               │                                         │
-│  ┌────────────▼─────────────────────────────────────┐   │
-│  │  Sync Middleware (Conflict Resolution)           │   │
-│  │  - Last-write-wins for most data                 │   │
-│  │  - Manual resolution for critical conflicts      │   │
-│  └────────────┬─────────────────────────────────────┘   │
-│               │                                         │
-│  ┌────────────▼─────────────────────────────────────┐   │
-│  │  Local Database (RxDB/SQLite)                    │   │
-│  │  - Full schema with all properties               │   │
-│  │  - Sync metadata (version vectors, timestamps)   │   │
-│  │  - Offline queue for pending changes             │   │
-│  └────────────┬─────────────────────────────────────┘   │
-│               │                                         │
-└───────────────┼─────────────────────────────────────────┘
-                │ HTTPS/WebSocket
-                │ (when online + sync enabled)
-                │
-┌───────────────▼─────────────────────────────────────────┐
-│              Cloud Sync Server (Optional)               │
-│  ┌──────────────────────────────────────────────────┐   │
-│  │  Sync API (Electric SQL / PowerSync / Custom)    │   │
-│  └────────────┬─────────────────────────────────────┘   │
-│               │                                         │
-│  ┌────────────▼─────────────────────────────────────┐   │
-│  │  PostgreSQL with Row-Level Security              │   │
-│  │  - Company isolation                             │   │
-│  │  - Property (Mandant) isolation                  │   │
-│  │  - Audit log for GoBD                            │   │
-│  └──────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────┘
+~/.weg-manager/
+├── company.db                   # Company-level data
+│   ├── users                    # Property managers
+│   ├── properties (metadata)    # List of properties
+│   ├── property_access          # Who can access which property
+│   └── document_templates       # Shared ODF templates
+│
+└── properties/
+    ├── {property-uuid-1}.db    # Property 1: Complete accounting books
+    ├── {property-uuid-2}.db    # Property 2: Complete accounting books
+    └── {property-uuid-3}.db    # Property 3: Complete accounting books
 ```
 
-### Sync Mechanics
+### Why Separate Databases per Property
 
-1. **Hybrid Logical Clocks (HLC)** for causality tracking
-2. **Change log table** for each synced entity
-3. **Subscription-based sync**: User subscribes to properties they have access to
-4. **Incremental sync**: Only changed records since last sync
-5. **Conflict resolution**:
-   - Accounting transactions: Last-write-wins with manual review flag
-   - Contacts: Merge fields with user notification
-   - Jahresabrechnung drafts: Version-based (auto-save all versions)
+**Accounting correctness:**
+- Each WEG property is legally separate entity
+- Matches traditional accounting practice (separate ledger per entity)
+- No risk of mixing transactions between properties
+- Clear audit boundaries for GoBD compliance
 
-### Offline Queue
-- All writes go to local DB immediately
-- Background sync when online
-- Optimistic UI updates
-- Retry failed syncs with exponential backoff
+**Technical benefits:**
+- Physical data isolation (file system separation)
+- Easier backup/restore per property
+- Smaller database files = better performance
+- Natural multi-tenancy (property = tenant)
+- Simpler queries (no property_id filtering needed)
+
+**GoBD compliance:**
+- Each property's books are separate audit unit
+- Export single property's data without filtering
+- Clear tamper-proof boundaries
+- Matches German accounting standards
+
+### Database Connection Management
+
+**Application state:**
+```typescript
+// Global state
+const currentPropertyId = ref<string | null>(null)
+const currentPropertyDb = ref<Database | null>(null)
+const companyDb = ref<Database>(null)  // Always open
+
+// Property database cache
+const propertyDatabases = new Map<string, Database>()
+
+// Switch property context
+async function switchToProperty(propertyId: string) {
+  if (propertyDatabases.has(propertyId)) {
+    currentPropertyDb.value = propertyDatabases.get(propertyId)
+  } else {
+    const db = await Database.load(`sqlite:properties/${propertyId}.db`)
+    await ensureSchema(db)  // Run migrations if needed
+    propertyDatabases.set(propertyId, db)
+    currentPropertyDb.value = db
+  }
+  currentPropertyId.value = propertyId
+}
+```
+
+### Cloud Sync Strategy (Optional)
+
+When cloud sync is needed, each property database syncs to separate PostgreSQL schema:
+
+**PostgreSQL structure:**
+```
+PostgreSQL Server
+├── Shared tables (public schema)
+│   ├── companies
+│   ├── users
+│   └── property_metadata
+│
+└── Property-specific schemas
+    ├── property_{uuid_1}
+    │   ├── journal_entries
+    │   ├── postings
+    │   ├── accounts
+    │   └── contacts
+    │
+    ├── property_{uuid_2}
+    │   └── ... (same schema)
+    │
+    └── property_{uuid_3}
+        └── ... (same schema)
+```
+
+**Sync mechanics:**
+- Each property database syncs independently
+- Schema per property maintains separation in cloud
+- Conflict resolution per property (isolated)
+- Can sync individual properties on-demand
 
 ---
 
 ## 5. Multi-Tenant (Mandant) Architecture
 
-### Database Design
+### Two-Tier Database Structure
+
+**Tenant boundary = Property** (each WEG property is the tenant)
+
+### Tier 1: Company Database (company.db)
+
+Shared data across all properties managed by the company:
 
 ```sql
--- Company level (management company)
-companies (
-  id UUID PRIMARY KEY,
+-- Property managers and authentication
+CREATE TABLE users (
+  id TEXT PRIMARY KEY,
+  email TEXT UNIQUE NOT NULL,
   name TEXT NOT NULL,
-  settings JSONB, -- includes offline_write_enabled flag
-  created_at TIMESTAMPTZ
-)
+  password_hash TEXT NOT NULL,
+  company_role TEXT NOT NULL,  -- 'company_admin' | 'property_manager'
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
--- Property level (Mandant = each WEG property)
-properties (
-  id UUID PRIMARY KEY,
-  company_id UUID REFERENCES companies(id),
+-- Property metadata (NOT accounting data)
+CREATE TABLE properties (
+  id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
+  address JSONB NOT NULL,
+  weg_number TEXT,              -- Official WEG registration number
+  accounting_year_start TEXT,   -- MM-DD format, e.g., "01-01"
+  total_units INTEGER NOT NULL,
+  db_path TEXT NOT NULL,        -- Path to property's database file
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP
+);
+
+-- Property access control
+CREATE TABLE property_access (
+  user_id TEXT NOT NULL,
+  property_id TEXT NOT NULL,
+  role TEXT NOT NULL,           -- 'viewer' | 'editor' | 'admin'
+  granted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (user_id, property_id),
+  FOREIGN KEY (user_id) REFERENCES users(id),
+  FOREIGN KEY (property_id) REFERENCES properties(id)
+);
+
+-- Shared document templates
+CREATE TABLE document_templates (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  type TEXT NOT NULL,           -- 'jahresabrechnung', 'letter', etc.
+  file_path TEXT NOT NULL,      -- Path to .odt file
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Company settings
+CREATE TABLE settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
+```
+
+### Tier 2: Property Database (properties/{property-id}.db)
+
+**Each property has its own complete accounting database:**
+
+```sql
+-- Double-Entry Chart of Accounts
+CREATE TABLE accounts (
+  id TEXT PRIMARY KEY,
+  code TEXT UNIQUE NOT NULL,    -- e.g., "1000", "4000", "6200"
+  name TEXT NOT NULL,            -- e.g., "Bank Account", "Hausgeld Einnahmen"
+  type TEXT NOT NULL,            -- 'asset' | 'liability' | 'equity' | 'income' | 'expense'
+  parent_id TEXT,                -- For account hierarchy
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (parent_id) REFERENCES accounts(id)
+);
+
+-- Journal Entries (double-entry transactions)
+CREATE TABLE journal_entries (
+  id TEXT PRIMARY KEY,
+  date DATE NOT NULL,
+  description TEXT NOT NULL,
+  reference TEXT,                -- Invoice number, receipt ID, etc.
+  created_by TEXT NOT NULL,      -- User ID from company.db
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  modified_at TIMESTAMP
+);
+
+-- Postings (debits and credits)
+CREATE TABLE postings (
+  id TEXT PRIMARY KEY,
+  journal_entry_id TEXT NOT NULL,
+  account_id TEXT NOT NULL,
+  debit TEXT,                    -- Decimal as string, NULL or amount
+  credit TEXT,                   -- Decimal as string, NULL or amount
+  memo TEXT,
+  FOREIGN KEY (journal_entry_id) REFERENCES journal_entries(id) ON DELETE CASCADE,
+  FOREIGN KEY (account_id) REFERENCES accounts(id),
+  CHECK ((debit IS NULL AND credit IS NOT NULL) OR
+         (debit IS NOT NULL AND credit IS NULL))
+);
+
+-- WEG-specific: Cost Allocations
+CREATE TABLE cost_allocations (
+  id TEXT PRIMARY KEY,
+  journal_entry_id TEXT NOT NULL,
+  allocation_type TEXT NOT NULL, -- 'by_share' | 'by_usage' | 'flat' | 'specific_units'
+  units JSONB NOT NULL,          -- [{unitNumber, share, amount}, ...]
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (journal_entry_id) REFERENCES journal_entries(id) ON DELETE CASCADE
+);
+
+-- Property owners and tenants
+CREATE TABLE contacts (
+  id TEXT PRIMARY KEY,
+  type TEXT NOT NULL,            -- 'owner' | 'tenant' | 'service_provider'
+  salutation TEXT,               -- 'Herr' | 'Frau' | 'Firma'
+  first_name TEXT,
+  last_name TEXT,
+  company_name TEXT,
+  email TEXT,
+  phone TEXT,
   address JSONB,
-  weg_number TEXT, -- Official WEG registration number
-  accounting_year_start DATE, -- Can differ per property
-  settings JSONB,
-  created_at TIMESTAMPTZ
-)
+  unit_numbers JSONB,            -- Array of unit numbers they own/occupy
+  ownership_shares INTEGER,      -- Miteigentumsanteil (in Tausendstel)
+  notes TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP
+);
 
--- User access
-users (
-  id UUID PRIMARY KEY,
-  email TEXT UNIQUE,
-  name TEXT,
-  company_id UUID REFERENCES companies(id),
-  role company_role, -- ENUM: 'admin', 'manager'
-  created_at TIMESTAMPTZ
-)
+-- Units in the property
+CREATE TABLE units (
+  id TEXT PRIMARY KEY,
+  unit_number TEXT UNIQUE NOT NULL,
+  owner_id TEXT,                 -- Current owner contact ID
+  ownership_shares INTEGER NOT NULL, -- Miteigentumsanteil
+  floor INTEGER,
+  size_sqm REAL,
+  notes TEXT,
+  FOREIGN KEY (owner_id) REFERENCES contacts(id)
+);
 
--- Property access (many-to-many)
-property_access (
-  user_id UUID REFERENCES users(id),
-  property_id UUID REFERENCES properties(id),
-  role property_role, -- ENUM: 'viewer', 'editor', 'admin'
-  PRIMARY KEY (user_id, property_id)
-)
+-- Jahresabrechnung (annual statements)
+CREATE TABLE jahresabrechnungen (
+  id TEXT PRIMARY KEY,
+  year INTEGER NOT NULL,
+  status TEXT NOT NULL,          -- 'draft' | 'final' | 'published'
+  period_start DATE NOT NULL,
+  period_end DATE NOT NULL,
+  summary JSONB NOT NULL,        -- {totalIncome, totalExpenses, result, reserves}
+  unit_allocations JSONB NOT NULL, -- Full allocation data per unit
+  generated_at TIMESTAMP,
+  approved_by TEXT,              -- User ID
+  approved_at TIMESTAMP,
+  odt_file_path TEXT,            -- Path to .odt source
+  pdf_file_path TEXT,            -- Path to final .pdf
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- GoBD Audit Trail
+CREATE TABLE audit_log (
+  id TEXT PRIMARY KEY,
+  table_name TEXT NOT NULL,
+  record_id TEXT NOT NULL,
+  action TEXT NOT NULL,          -- 'INSERT' | 'UPDATE' | 'DELETE'
+  old_values JSONB,
+  new_values JSONB,
+  user_id TEXT NOT NULL,
+  timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+### Multi-Tenancy Pattern
+
+```
+Desktop Installation
+├── company.db
+│   ├── users (property managers)
+│   ├── properties (metadata only)
+│   │   ├── id: prop-1, name: "Musterstraße 10", db_path: "properties/prop-1.db"
+│   │   ├── id: prop-2, name: "Hauptstraße 5", db_path: "properties/prop-2.db"
+│   │   └── id: prop-3, name: "Parkweg 3", db_path: "properties/prop-3.db"
+│   └── property_access (who accesses what)
+│
+└── properties/
+    ├── prop-1.db (Musterstraße 10 - Complete accounting books)
+    │   ├── accounts, journal_entries, postings
+    │   ├── contacts, units
+    │   └── jahresabrechnungen
+    │
+    ├── prop-2.db (Hauptstraße 5 - Complete accounting books)
+    │   └── ... (same schema)
+    │
+    └── prop-3.db (Parkweg 3 - Complete accounting books)
+        └── ... (same schema)
 ```
 
 ### Isolation Strategy
-- **Company level**: All data belongs to one company (SaaS tenant)
-- **Property level**: Each property (Mandant) has separate accounting books
-- **Row-Level Security (RLS)**: Enforce access in database queries
-- **Local storage**: Filter synced data by user's property access
 
-### Multi-Tenancy Pattern
-```
-Company A
-  ├── Property 1 (Musterstraße 10)
-  │   ├── Accounting Book 2024
-  │   ├── Contacts (owners, tenants)
-  │   └── Jahresabrechnung 2024
-  ├── Property 2 (Hauptstraße 5)
-  │   └── ...
-  └── Users (property managers)
-      ├── User 1 (admin) → access to all properties
-      └── User 2 (manager) → access to Property 1 only
-```
+**Physical separation:**
+- Each property's accounting data in separate SQLite file
+- Impossible to mix transactions between properties
+- File-system level isolation
+
+**Access control:**
+- Company.db stores which users can access which properties
+- Application enforces access before opening property database
+- Property databases contain no user authentication data
+
+**Data integrity:**
+- No property_id foreign keys needed (this database IS the property)
+- Simpler schema, fewer joins
+- Natural backup boundary (one file = one property's books)
 
 ---
 
@@ -507,250 +698,266 @@ function can(user: UserPermissions, action: string, propertyId: string): boolean
 
 ## 7. MVP Data Model
 
-### Core Entities
+### Core Entities: Two-Tier Structure
+
+**Note:** Entities are split between company.db (shared) and property-specific databases
+
+#### Tier 1: Company Database Entities (company.db)
 
 ```typescript
-// ============ Company & Properties ============
+// ============ Users & Authentication ============
 
-interface Company {
-  id: string;
-  name: string;
-  settings: {
-    offlineWriteEnabled: boolean;
-    defaultAccountingYearStart: string; // MM-DD format
-    currency: 'EUR';
-  };
-  createdAt: Date;
-  updatedAt: Date;
-  _syncMetadata: SyncMetadata;
+interface User {
+  id: string
+  email: string
+  name: string
+  passwordHash: string
+  companyRole: 'company_admin' | 'property_manager'
+  createdAt: Date
 }
 
-interface Property {
-  id: string;
-  companyId: string;
-  name: string;
-  wegNumber: string; // Official registration
-  address: {
-    street: string;
-    houseNumber: string;
-    postalCode: string;
-    city: string;
-    state: string;
-  };
-  accountingYearStart: string; // MM-DD, overrides company default
-  totalUnits: number; // Total Wohnungseinheiten
-  settings: {
-    defaultCurrency: 'EUR';
-    taxRate: number; // VAT if applicable
-  };
-  createdAt: Date;
-  updatedAt: Date;
-  _syncMetadata: SyncMetadata;
+// ============ Property Metadata ============
+
+interface PropertyMetadata {
+  id: string
+  name: string
+  address: Address
+  wegNumber: string              // Official WEG registration
+  accountingYearStart: string    // MM-DD format
+  totalUnits: number
+  dbPath: string                 // Path to property's database file
+  createdAt: Date
+  updatedAt: Date
 }
 
-// ============ Contacts (CRM) ============
+interface PropertyAccess {
+  userId: string
+  propertyId: string
+  role: 'viewer' | 'editor' | 'admin'
+  grantedAt: Date
+}
+
+// ============ Shared Templates ============
+
+interface DocumentTemplate {
+  id: string
+  name: string
+  type: 'jahresabrechnung' | 'letter' | 'notice'
+  filePath: string              // Path to .odt template file
+  createdAt: Date
+}
+```
+
+#### Tier 2: Property Database Entities (properties/{id}.db)
+
+**No property_id needed - this database IS the property**
+
+```typescript
+// ============ Double-Entry Accounting ============
+
+interface Account {
+  id: string
+  code: string                   // e.g., "1000", "4000", "6200"
+  name: string                   // e.g., "Bank Account", "Hausgeld Einnahmen"
+  type: 'asset' | 'liability' | 'equity' | 'income' | 'expense'
+  parentId?: string              // For account hierarchy
+  isActive: boolean
+  createdAt: Date
+}
+
+interface JournalEntry {
+  id: string
+  date: Date
+  description: string
+  reference?: string             // Invoice number, receipt ID
+  createdBy: string              // User ID (from company.db)
+  createdAt: Date
+  modifiedAt?: Date
+}
+
+interface Posting {
+  id: string
+  journalEntryId: string
+  accountId: string
+  debit: string | null           // Decimal as string
+  credit: string | null          // Decimal as string
+  memo?: string
+
+  // Constraint: exactly one of debit or credit must be set
+}
+
+// ============ WEG-Specific Allocations ============
+
+interface CostAllocation {
+  id: string
+  journalEntryId: string
+  allocationType: 'by_share' | 'by_usage' | 'flat' | 'specific_units'
+  units: {
+    unitNumber: string
+    ownershipShare?: number      // Miteigentumsanteil (in Tausendstel)
+    usageAmount?: number          // e.g., m³ water used
+    allocatedAmount: string       // Calculated cost for this unit
+  }[]
+  createdAt: Date
+}
+
+// ============ Property Contacts & Units ============
 
 interface Contact {
-  id: string;
-  propertyId: string;
-  type: 'owner' | 'tenant' | 'service_provider' | 'other';
-
-  // Personal/Company Info
-  salutation?: 'Herr' | 'Frau' | 'Firma';
-  firstName?: string;
-  lastName?: string;
-  companyName?: string;
-
-  // Contact Details
-  email?: string;
-  phone?: string;
-  mobile?: string;
-
-  // Address (can differ from property)
-  address?: Address;
-
-  // WEG-specific
-  unitNumbers?: string[]; // Which units they own/inhabit
-  ownershipShares?: number; // Miteigentumsanteil (in Tausendstel)
-
-  // Metadata
-  notes?: string;
-  createdAt: Date;
-  updatedAt: Date;
-  _syncMetadata: SyncMetadata;
+  id: string
+  type: 'owner' | 'tenant' | 'service_provider'
+  salutation?: 'Herr' | 'Frau' | 'Firma'
+  firstName?: string
+  lastName?: string
+  companyName?: string
+  email?: string
+  phone?: string
+  address?: Address
+  unitNumbers?: string[]         // Which units they own/occupy
+  ownershipShares?: number       // Total Miteigentumsanteil
+  notes?: string
+  createdAt: Date
+  updatedAt: Date
 }
 
-// ============ Accounting ============
-
-interface AccountingPeriod {
-  id: string;
-  propertyId: string;
-  year: number; // e.g., 2024
-  startDate: Date;
-  endDate: Date;
-  status: 'open' | 'closed' | 'archived';
-  createdAt: Date;
-  updatedAt: Date;
-  _syncMetadata: SyncMetadata;
+interface Unit {
+  id: string
+  unitNumber: string
+  ownerId?: string               // Contact ID
+  ownershipShares: number        // Miteigentumsanteil (in Tausendstel)
+  floor?: number
+  sizeSqm?: number
+  notes?: string
 }
-
-interface AccountingTransaction {
-  id: string;
-  propertyId: string;
-  periodId: string;
-
-  // Transaction details
-  transactionDate: Date;
-  valueDate?: Date;
-  amount: string; // Use string for decimal precision (GoBD requirement)
-  currency: 'EUR';
-  type: 'income' | 'expense';
-
-  // Categorization (simplified chart of accounts)
-  accountCode: string; // e.g., "4000" for Hausgeld
-  accountName: string; // e.g., "Hausgeld Einnahmen"
-  category: TransactionCategory;
-
-  // Details
-  description: string;
-  reference?: string; // Invoice/receipt number
-  counterparty?: string; // Who paid/was paid
-  paymentMethod?: 'bank_transfer' | 'cash' | 'direct_debit' | 'other';
-
-  // Cost allocation (for Umlageschlüssel)
-  allocationType: 'all_units' | 'by_share' | 'by_usage' | 'specific_units';
-  allocatedUnits?: string[]; // If specific units
-
-  // Attachments
-  attachments?: {
-    id: string;
-    filename: string;
-    fileUrl: string; // Local file path or cloud URL
-    mimeType: string;
-  }[];
-
-  // Audit trail (GoBD)
-  importedAt?: Date;
-  importSource?: string;
-  modifiedBy?: string;
-  modificationHistory?: ModificationEntry[];
-
-  createdAt: Date;
-  updatedAt: Date;
-  _syncMetadata: SyncMetadata;
-}
-
-type TransactionCategory =
-  | 'hausgeld' // Monthly owner contributions
-  | 'maintenance_repair'
-  | 'utilities' // Nebenkosten
-  | 'insurance'
-  | 'property_tax'
-  | 'management_fees'
-  | 'reserves' // Instandhaltungsrückstellung
-  | 'other';
 
 // ============ Jahresabrechnung ============
 
 interface Jahresabrechnung {
-  id: string;
-  propertyId: string;
-  periodId: string;
+  id: string
+  year: number
+  status: 'draft' | 'final' | 'published'
+  periodStart: Date
+  periodEnd: Date
 
-  year: number;
-  status: 'draft' | 'final' | 'published';
-
-  // Summary data (calculated)
+  // Calculated summary
   summary: {
-    totalIncome: string;
-    totalExpenses: string;
-    result: string; // Surplus or deficit
-    reservesStart: string;
-    reservesEnd: string;
-  };
+    totalIncome: string
+    totalExpenses: string
+    result: string               // Surplus or deficit
+    reservesStart: string
+    reservesEnd: string
+  }
 
-  // Per-unit breakdown
+  // Per-unit allocations (calculated from cost_allocations)
   unitAllocations: {
-    unitNumber: string;
-    ownerId: string; // Contact ID
-    ownerName: string;
-    ownershipShare: number; // Miteigentumsanteil
+    unitNumber: string
+    ownerId: string
+    ownerName: string
+    ownershipShare: number
 
     allocatedCosts: {
-      category: TransactionCategory;
-      amount: string;
-      basis: 'share' | 'usage' | 'flat';
-    }[];
+      accountCode: string
+      accountName: string
+      amount: string
+      allocationType: 'share' | 'usage' | 'flat'
+    }[]
 
-    totalAllocated: string;
-    advancePayments: string; // Vorauszahlungen
-    balance: string; // Credit or debit
-  }[];
+    totalAllocated: string
+    advancePayments: string      // Hausgeld paid during year
+    balance: string              // Credit or debit
+  }[]
 
   // Generated documents
-  pdfUrl?: string;
-  generatedAt?: Date;
+  odtFilePath?: string           // Source .odt file
+  pdfFilePath?: string           // Final .pdf
+  generatedAt?: Date
 
   // Approval
-  approvedBy?: string;
-  approvedAt?: Date;
+  approvedBy?: string            // User ID
+  approvedAt?: Date
 
-  createdAt: Date;
-  updatedAt: Date;
-  _syncMetadata: SyncMetadata;
+  createdAt: Date
+}
+
+// ============ Audit Trail ============
+
+interface AuditLogEntry {
+  id: string
+  tableName: string
+  recordId: string
+  action: 'INSERT' | 'UPDATE' | 'DELETE'
+  oldValues?: Record<string, any>
+  newValues?: Record<string, any>
+  userId: string
+  timestamp: Date
 }
 
 // ============ Supporting Types ============
 
-interface SyncMetadata {
-  version: number; // Vector clock or version number
-  lastSyncedAt?: Date;
-  isDeleted: boolean;
-  deviceId: string; // Which device made the change
-  userId: string;
-}
-
-interface ModificationEntry {
-  timestamp: Date;
-  userId: string;
-  field: string;
-  oldValue: any;
-  newValue: any;
-}
-
 interface Address {
-  street: string;
-  houseNumber: string;
-  postalCode: string;
-  city: string;
-  state?: string;
-  country: 'DE';
+  street: string
+  houseNumber: string
+  postalCode: string
+  city: string
+  state?: string
+  country: 'DE'
 }
 ```
 
-### Simplified Chart of Accounts (German WEG)
+### WEG Chart of Accounts (Double-Entry)
+
+**Standard German WEG accounting structure (SKR 04 adapted):**
 
 ```typescript
-const WEG_ACCOUNT_PLAN = {
+const WEG_CHART_OF_ACCOUNTS = {
+  // Assets (1000-1999)
+  assets: {
+    '1000': { name: 'Bank Account', type: 'asset' },
+    '1100': { name: 'Instandhaltungsrückstellung (Reserves)', type: 'asset' },
+    '1200': { name: 'Forderungen Eigentümer (Receivables)', type: 'asset' },
+    '1800': { name: 'Sonstige Forderungen', type: 'asset' },
+  },
+
+  // Liabilities (2000-2999)
+  liabilities: {
+    '2000': { name: 'Verbindlichkeiten (Payables)', type: 'liability' },
+    '2100': { name: 'Hausgeld-Vorauszahlungen', type: 'liability' },
+    '2800': { name: 'Sonstige Verbindlichkeiten', type: 'liability' },
+  },
+
+  // Equity (3000-3999)
+  equity: {
+    '3000': { name: 'Eigenkapital WEG', type: 'equity' },
+    '3100': { name: 'Jahresüberschuss/Jahresfehlbetrag', type: 'equity' },
+  },
+
+  // Income (4000-4999)
   income: {
-    '4000': 'Hausgeld Einnahmen',
-    '4100': 'Sonderumlagen',
-    '4200': 'Zinseinnahmen',
-    '4900': 'Sonstige Einnahmen',
+    '4000': { name: 'Hausgeld Einnahmen', type: 'income' },
+    '4100': { name: 'Sonderumlagen', type: 'income' },
+    '4200': { name: 'Zinseinnahmen', type: 'income' },
+    '4300': { name: 'Rücklagenentnahme', type: 'income' },
+    '4900': { name: 'Sonstige Einnahmen', type: 'income' },
   },
+
+  // Expenses (6000-6999)
   expenses: {
-    '6000': 'Instandhaltung und Reparaturen',
-    '6100': 'Hausmeisterkosten',
-    '6200': 'Versicherungen',
-    '6300': 'Grundsteuer',
-    '6400': 'Energie (Strom, Heizung)',
-    '6500': 'Wasser/Abwasser',
-    '6600': 'Müllabfuhr',
-    '6700': 'Verwaltungskosten',
-    '6800': 'Zuführung Instandhaltungsrückstellung',
-    '6900': 'Sonstige Kosten',
+    '6000': { name: 'Instandhaltung und Reparaturen', type: 'expense' },
+    '6100': { name: 'Hausmeisterkosten', type: 'expense' },
+    '6200': { name: 'Versicherungen', type: 'expense' },
+    '6300': { name: 'Grundsteuer', type: 'expense' },
+    '6400': { name: 'Energie (Strom, Heizung)', type: 'expense' },
+    '6500': { name: 'Wasser/Abwasser', type: 'expense' },
+    '6600': { name: 'Müllabfuhr', type: 'expense' },
+    '6700': { name: 'Verwaltungskosten', type: 'expense' },
+    '6800': { name: 'Zuführung Instandhaltungsrückstellung', type: 'expense' },
+    '6900': { name: 'Sonstige Kosten', type: 'expense' },
   },
-};
+}
+
+// Example journal entry: Recording maintenance expense
+// Debit:  6000 (Instandhaltung) €1,000
+// Credit: 1000 (Bank Account)   €1,000
 ```
 
 ---
@@ -760,20 +967,27 @@ const WEG_ACCOUNT_PLAN = {
 ### Phase 1: Foundation (Week 1-2)
 - [ ] Set up monorepo structure (Turborepo + pnpm)
 - [ ] Initialize Nuxt 3 app with Tauri wrapper
-- [ ] Configure SQLite database via Tauri SQL plugin
-- [ ] Implement database schema and migrations
-- [ ] Build authentication (local accounts stored in SQLite)
-- [ ] Create company + property management UI
+- [ ] Configure SQLite databases via Tauri SQL plugin
+  - [ ] Company database schema (users, properties metadata, templates)
+  - [ ] Property database schema template (accounts, journal_entries, postings)
+- [ ] Implement database migrations for both tiers
+- [ ] Build multi-database connection management (switch between property DBs)
+- [ ] Build authentication (users in company.db)
+- [ ] Create property selection/switching UI
 - [ ] Implement role-based access control
-- [ ] Set up shared packages (types, utils)
+- [ ] Set up shared packages (types, database, business-logic, utils)
 
-### Phase 2: Core Accounting (Week 2-3)
-- [ ] Build transaction import (CSV/Excel)
-- [ ] Create transaction list/filter/search UI
-- [ ] Implement transaction CRUD with validation
-- [ ] Add basic cost categorization
-- [ ] Build decimal-precise calculation utilities
-- [ ] Create accounting period management
+### Phase 2: Double-Entry Accounting (Week 2-3)
+- [ ] Initialize WEG chart of accounts in new property databases
+- [ ] Build journal entry creation UI (debit/credit interface)
+- [ ] Implement posting validation (debits = credits)
+- [ ] Create transaction import from CSV/Excel
+  - [ ] Map CSV columns to chart of accounts
+  - [ ] Generate journal entries from imports
+- [ ] Build journal entry list/filter/search UI
+- [ ] Implement decimal-precise calculations with decimal.js
+- [ ] Create trial balance view (verify books balance)
+- [ ] Build account ledger views (per-account transaction history)
 
 ### Phase 3: Contact Management (Week 3)
 - [ ] Implement contact CRUD
@@ -842,14 +1056,14 @@ const WEG_ACCOUNT_PLAN = {
 │  │   - Cost allocation rules             │  │
 │  │   - GoBD compliance                   │  │
 │  └──────────────┬────────────────────────┘  │
-│                 │                           │
+│                 │                            │
 │  ┌──────────────▼────────────────────────┐  │
 │  │   Adapter Layer (Interface)           │  │
 │  │   - IAccountingProvider               │  │
 │  │   - IContactProvider                  │  │
 │  │   - IDocumentGenerator                │  │
 │  └──────────────┬────────────────────────┘  │
-│                 │                           │
+│                 │                            │
 │  ┌──────────────▼────────────────────────┐  │
 │  │   Implementation (Swappable)          │  │
 │  │   - Custom DB │ Odoo API │ ERPNext    │  │
@@ -872,12 +1086,13 @@ const WEG_ACCOUNT_PLAN = {
 | **Frontend** | Nuxt 3 (Vue recommended) | Great DX, reactive, works in Tauri and PWA |
 | **Backend** | Rust (via Tauri) | File I/O, LibreOffice integration, native performance |
 | **Code Split** | 85% Vue/TS, 15% Rust | Business logic in Vue; only file ops in Rust |
-| **Local DB** | SQLite (via Tauri plugin) | Native performance, full SQL, proven reliability |
-| **Sync** | Electric SQL (when needed) | SQLite replication, optional for MVP |
+| **Database Architecture** | Separate SQLite per property | True accounting separation, matches legal structure |
+| **Database Tiers** | company.db + properties/{id}.db | Company data shared; property books isolated |
+| **Accounting System** | Double-entry bookkeeping | Professional standard, data consistency, GoBD compliance |
+| **Sync** | PostgreSQL schemas per property | Maintains separation in cloud (optional) |
 | **Documents** | ODF templates + LibreOffice | ISO standard, editable, visual template design |
-| **Multi-tenancy** | Company → Property hierarchy | Matches business model, clear isolation |
+| **Multi-tenancy** | Property = tenant boundary | Each WEG property is separate entity with own books |
 | **Roles** | 2 company + 3 property roles | Sufficient flexibility without complexity |
-| **Accounting** | Custom with decimal.js | GoBD precision, WEG-specific rules |
 | **FOSS Strategy** | Build core, integrate later | Fast MVP, future flexibility |
 | **Monorepo** | Turborepo + pnpm | Simple setup, fast builds, type-safe packages |
 
