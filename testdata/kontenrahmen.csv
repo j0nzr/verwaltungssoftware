@@ -1,0 +1,64 @@
+id;name;typ;ukonto;umlagefähig
+10;Grundstücke und grundstücksgleiche Rechte;A;;FALSE
+13;Garagen;A;;FALSE
+14;Außenanlagen;A;;FALSE
+15;Hof- und Wegbefestigungen;A;;FALSE
+40;Geringwertige Wirtschaftsgüter;A;;FALSE
+41;Sonstige Wirtschaftsgüter;A;;FALSE
+77;Geleistete Anzahlungen;A;;FALSE
+200;Forderungen gegen Eigentümer;A;;FALSE
+210;Forderungen gegen Dritte;A;;FALSE
+220;Sonstige Forderungen;A;;FALSE
+270;Bank;A;;FALSE
+290;Aktiver Rechnungsabgrenzungsposten;A;;FALSE
+291;Geldtransfer;A;;FALSE
+300;Verfügbare Geldmittel der Kostentragung;P;;FALSE
+310;Verfügbare Geldmittel der Instandhaltungsrücklage;P;;FALSE
+400;Verbindlichkeiten gegen Eigentümer;P;;FALSE
+410;Verbindlichkeiten gegen Dritte;P;;FALSE
+420;Sonstige Verbindlichkeiten;P;;FALSE
+430;Langfristige Verbindlichkeiten;P;;FALSE
+490;Passive Rechnungsabgrenzungsposten;P;;FALSE
+500;Eigentümerbezogene Einnahmen;E;;FALSE
+550;Eigentümerbezogene Ausgaben;K;;FALSE
+600;Einnahmen;E;;FALSE
+610;Zinserträge;E;;FALSE
+620;Gezahlte Hausgelder;E;;FALSE
+690;Sonstige Erträge;E;;FALSE
+800;Kosten der Wasserversorgung;K;;TRUE
+801;Kosten der Entwässerung;K;;TRUE
+802;Kosten der Heizung;K;;TRUE
+803;Kosten der Warmwasserversorgung;K;;TRUE
+804;Kosten des Betriebs des Personen- oder Lastenaufzugs;K;;TRUE
+805;Kosten der Straßenreinigung;K;;TRUE
+806;Kosten der Müllbeseitigung;K;;TRUE
+807;Kosten der Gebäudereinigung;K;;TRUE
+808;Kosten der Ungezieferbekämpfung;K;;TRUE
+809;Kosten der Gartenpflege;K;;TRUE
+810;Kosten der Spielplätze;K;;TRUE
+811;Kosten der Beleuchtung;K;;TRUE
+812;Kosten der Schornsteinreinigung;K;;TRUE
+813;Kosten der Sach- und Haftpflichtversicherung;K;;TRUE
+814;Kosten des Hauswart;K;;TRUE
+815;Kosten des Betriebs der Gemeinschafts-Antennenanlage;K;;TRUE
+816;Kosten des Betriebs der mit einem Breitbandkabelnetz verbundenen privaten Verteilanlage;K;;TRUE
+817;Kosten des Betriebs der Einrichtungen für die Wäschepflege;K;;TRUE
+818;Grundsteuer;K;;TRUE
+819;Andere Betriebskosten;K;;TRUE
+820;Kosten der baulichen Instandhaltung;K;;FALSE
+821;Kosten für Schönheitsreparaturen;K;;TRUE
+822;Kosten der Instandhaltung für Gemeinschaftsanlagen und Folgeeinrichtungen;K;;FALSE
+829;Andere Instandhaltungskosten;K;;FALSE
+830;Pachtaufwendungen;K;;FALSE
+831;Kosten für Miet- und Räumungsklagen;K;;FALSE
+832;Erbbauzinsen;K;;FALSE
+840;Kosten der Baubetreuung;K;;FALSE
+841;Kosten der Verwaltung;K;;FALSE
+842;Sonderkosten der Verwaltung;K;;FALSE
+843;Löhne und Gehälter;K;;FALSE
+844;Soziale Abgaben;K;;FALSE
+850;Rauchmelder Wartung;K;;TRUE
+851;Nebenkosten des Geldverkehrs;K;;FALSE
+852;Rechts- und Beratungskosten ;K;;FALSE
+890;Sonstige Kosten;K;;FALSE
+900;Saldovortragskonto;A;;FALSE
