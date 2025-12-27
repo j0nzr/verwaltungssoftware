@@ -1,4 +1,29 @@
 import { createApp } from "vue";
 import App from "./App.vue";
 
-createApp(App).mount("#app");
+// PrimeVue
+import PrimeVue from 'primevue/config';
+import Lara from '@primeuix/themes/lara';
+import 'primeicons/primeicons.css';
+import './style.css';
+
+// Pinia
+import { createPinia } from "pinia";
+
+// Router
+import {router} from "./routes/mainRouer"
+
+const app = createApp(App);
+const pinia = createPinia();
+
+app.use(PrimeVue, {
+    theme: {
+        preset: Lara,
+        options: {
+            darkModeSelector: false
+        }
+    }
+});
+app.use(pinia);
+app.use(router);
+app.mount("#app");
