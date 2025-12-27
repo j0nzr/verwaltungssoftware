@@ -7,6 +7,10 @@
 - Adresszeile 2 (ADR2)
 - PLZ (POLZ)
 - Ort (STADT)
+- Steuernummer (STRN)
+- Umsatzsteuer-ID (USID)
+- Direktor-Titel (DIRT)
+- Direktor-Name (DIRN)
 
 ### Mandanten (MDT)
 - ID

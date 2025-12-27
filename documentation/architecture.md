@@ -64,24 +64,16 @@
 
 ### Frontend
 - **Framework:** Choose based on your preference - all work equally well with local-first:
-  - **Nuxt 3 (Vue)**: Excellent DX, Vue's reactivity great for local-first, growing ecosystem
-  - **SvelteKit**: Lightest runtime, minimal boilerplate, great for local-first
-  - **Next.js (React)**: Largest ecosystem, most developers available, mature tooling
+  - **Vue**: Excellent DX, Vue's reactivity great for local-first, growing ecosystem
 
 - **UI Library:**
-  - Vue: Nuxt UI, PrimeVue, or Headless UI
-  - React: shadcn/ui, Radix UI
-  - Svelte: shadcn-svelte, Skeleton
+  - Vue: PrimeVue
 
 - **Forms:**
   - Vue: VeeValidate or FormKit with Zod
-  - React: React Hook Form with Zod
-  - Svelte: SvelteKit Forms with Zod
 
 - **State Management:**
   - Vue: Pinia + VueUse (includes useQuery/useMutation)
-  - React: TanStack Query + Zustand/Jotai
-  - Svelte: Svelte stores (built-in)
 
 ### Data Layer
 - **Local Database (Desktop):** **SQLite** via Tauri's SQL plugin
