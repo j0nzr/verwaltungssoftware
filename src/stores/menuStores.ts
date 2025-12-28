@@ -2,11 +2,14 @@ import { defineStore } from "pinia";
 import { ref } from "vue";
 
 export const useAppListStore = defineStore('appList' , () => {
-    const appList = ref([
+    const mainAppList = ref([
     { label: 'Unternehmensdaten', icon: 'pi pi-building', to: '/Unternehmensdaten' },
     { label: 'Mandanten', icon: 'pi pi-users', to: '/Mandanten' },
     { label: 'Einstellungen', icon: 'pi pi-cog', to: '/' }
     ])
 
-    return {appList}
+    const financeAppList = ref()
+    // TODO: add Menu Items
+
+    return {mainAppList, financeAppList}
     })

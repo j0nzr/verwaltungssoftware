@@ -31,7 +31,7 @@ const appListStore = useAppListStore();
 
 // Create menu items with command functions for navigation
 const menuItems = computed(() =>
-  appListStore.appList.map(item => ({
+  appListStore.mainAppList.map(item => ({
     ...item,
     command: () => {
       if (item.to) {
