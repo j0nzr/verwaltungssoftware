@@ -20,9 +20,11 @@ app.use(PrimeVue, {
     theme: {
         preset: Lara,
         options: {
-            darkModeSelector: false
+            darkModeSelector: '.dark-mode',
+            cssLayer: false
         }
-    }
+    },
+    ripple: true
 });
 app.use(pinia);
 app.use(router);

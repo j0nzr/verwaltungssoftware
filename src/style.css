@@ -25,9 +25,59 @@ body {
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background-color: var(--p-surface-ground);
+  color: var(--p-text-color);
 }
 
 #app {
   width: 100%;
   height: 100vh;
+  background-color: var(--p-surface-ground);
+}
+
+/* Ensure all card-like elements respect dark mode */
+:root.dark-mode {
+  color-scheme: dark;
+
+  /* Override PrimeVue surface colors for dark mode since darkModeSelector has known issues */
+  --p-surface-0: #18181b;
+  --p-surface-50: #27272a;
+  --p-surface-100: #3f3f46;
+  --p-surface-200: #52525b;
+  --p-surface-300: #71717a;
+  --p-surface-400: #a1a1aa;
+  --p-surface-500: #d4d4d8;
+  --p-surface-600: #e4e4e7;
+  --p-surface-700: #f4f4f5;
+  --p-surface-800: #fafafa;
+  --p-surface-900: #ffffff;
+  --p-surface-ground: #09090b;
+
+  --p-content-background: var(--p-surface-0);
+  --p-text-color: #f4f4f5;
+  --p-text-secondary-color: #d4d4d8;
+  --p-text-muted-color: #a1a1aa;
+  --p-surface-border: #52525b;
+}
+
+html.dark-mode {
+  color-scheme: dark;
+}
+
+/* Ensure PrimeVue buttons respect custom primary color */
+:root {
+  --p-button-primary-background: var(--p-primary-color);
+  --p-button-primary-hover-background: var(--p-primary-600);
+  --p-button-primary-active-background: var(--p-primary-700);
+}
+
+/* Override success severity to use primary color for consistency */
+.p-button.p-button-success {
+  background: var(--p-primary-color) !important;
+  border-color: var(--p-primary-color) !important;
+}
+
+.p-button.p-button-success:hover {
+  background: var(--p-primary-600) !important;
+  border-color: var(--p-primary-600) !important;
 }
