@@ -126,15 +126,29 @@
       </div>
 
       <div class="form-actions">
-        <button type="submit" class="btn-primary">Speichern</button>
-        <button type="button" class="btn-secondary" @click="handleReset">Zurücksetzen</button>
+        <button type="submit" class="btn-primary" :disabled="!hasChanges">Speichern</button>
       </div>
     </form>
+    <p> {{ debug }} </p>
   </div>
 </template>
 
 <script lang="ts" setup>
-import { reactive } from 'vue'
+import { reactive, computed, ref } from 'vue'
+import Database from '@tauri-apps/plugin-sql'
+import { useCompanyDataStore } from '../../stores/dataStores'
+
+let dbInstance: Database | null = null
+let debug = ref("")
+
+const companyDataStore = useCompanyDataStore()
+
+const getCompanyDb = async () => {
+  if (!dbInstance) {
+    dbInstance = await Database.load('sqlite:company.db')
+  }
+  return dbInstance
+}
 
 interface UnternehmensdatenForm {
   NAME: string
@@ -150,27 +164,52 @@ interface UnternehmensdatenForm {
 }
 
 const formData = reactive<UnternehmensdatenForm>({
-  NAME: '',
-  ZUSA: '',
-  ADR1: '',
-  ADR2: '',
-  POLZ: '',
-  STADT: '',
-  STRN: '',
-  USID: '',
-  DIRT: '',
-  DIRN: ''
+  NAME: companyDataStore.compData?.unternehmensname || '',
+  ZUSA: companyDataStore.compData?.zusatz || '',
+  ADR1: companyDataStore.compData?.adresszeile1 || '',
+  ADR2: companyDataStore.compData?.adresszeile2 || '',
+  POLZ: companyDataStore.compData?.plz || '',
+  STADT: companyDataStore.compData?.ort || '',
+  STRN: companyDataStore.compData?.steuernummer || '',
+  USID: companyDataStore.compData?.umsatzsteuerId || '',
+  DIRT: companyDataStore.compData?.direktorTitel || '',
+  DIRN: companyDataStore.compData?.direktorName || ''
 })
 
-const handleSubmit = () => {
-  console.log('Unternehmensdaten:', formData)
-  // TODO: Implement save logic
-}
+const initialData = ref<UnternehmensdatenForm>({
+  NAME: formData.NAME,
+  ZUSA: formData.ZUSA,
+  ADR1: formData.ADR1,
+  ADR2: formData.ADR2,
+  POLZ: formData.POLZ,
+  STADT: formData.STADT,
+  STRN: formData.STRN,
+  USID: formData.USID,
+  DIRT: formData.DIRT,
+  DIRN: formData.DIRN
+})
 
-const handleReset = () => {
-  Object.keys(formData).forEach(key => {
-    formData[key as keyof UnternehmensdatenForm] = ''
-  })
+// https://dl.vidsrc.vip/tv/1668/4/14
+
+const hasChanges = computed(() => {
+  if (!companyDataStore.compData) return true
+  return JSON.stringify(formData) !== JSON.stringify(initialData.value)
+})
+
+
+
+const handleSubmit = async () => {
+  try {
+    const db = await getCompanyDb();
+    const result = await db.execute(
+      `INSERT INTO company_data (unternehmensname, zusatz, adresszeile1, adresszeile2, plz, ort, steuernummer, umsatzsteuerId, direktorTitel, direktorName, bearbeitet)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [formData.NAME, formData.ZUSA, formData.ADR1, formData.ADR2, formData.POLZ, formData.STADT, formData.STRN, formData.USID, formData.DIRT, formData.DIRN, Date.now().toString()]
+    );
+    debug.value = result;
+  } catch (error) {
+    debug.value = error;
+  }
 }
 </script>
 
@@ -183,20 +222,20 @@ const handleReset = () => {
 
 h2 {
   margin-bottom: 2rem;
-  color: #2c3e50;
+  color: var(--p-text-color);
 }
 
 .form-section {
   margin-bottom: 2rem;
   padding: 1.5rem;
-  background: #f8f9fa;
-  border-radius: 8px;
+  background: var(--p-surface-100);
+  border-radius: var(--p-border-radius-lg);
 }
 
 .form-section h3 {
   margin-top: 0;
   margin-bottom: 1rem;
-  color: #495057;
+  color: var(--p-text-color);
   font-size: 1.1rem;
 }
 
@@ -208,22 +247,24 @@ h2 {
   display: block;
   margin-bottom: 0.5rem;
   font-weight: 500;
-  color: #495057;
+  color: var(--p-text-color);
 }
 
 .form-group input {
   width: 100%;
   padding: 0.5rem;
-  border: 1px solid #ced4da;
-  border-radius: 4px;
+  border: 1px solid var(--p-surface-border);
+  border-radius: var(--p-border-radius-md);
   font-size: 1rem;
   transition: border-color 0.2s;
+  background: var(--p-surface-0);
+  color: var(--p-text-color);
 }
 
 .form-group input:focus {
   outline: none;
-  border-color: #80bdff;
-  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+  border-color: var(--p-primary-color);
+  box-shadow: 0 0 0 0.2rem var(--p-primary-color-emphasis);
 }
 
 .form-row {
@@ -249,20 +290,26 @@ h2 {
 }
 
 .btn-primary {
-  background-color: #007bff;
-  color: white;
+  background-color: var(--p-primary-color);
+  color: var(--p-primary-contrast-color);
 }
 
-.btn-primary:hover {
-  background-color: #0056b3;
+.btn-primary:hover:not(:disabled) {
+  background-color: var(--p-primary-600);
+}
+
+.btn-primary:disabled {
+  background-color: var(--p-surface-400);
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 .btn-secondary {
-  background-color: #6c757d;
+  background-color: var(--p-surface-500);
   color: white;
 }
 
 .btn-secondary:hover {
-  background-color: #545b62;
+  background-color: var(--p-surface-600);
 }
 </style>

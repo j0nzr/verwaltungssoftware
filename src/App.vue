@@ -1,7 +1,38 @@
 <script setup lang="ts">
-import { RouterView } from 'vue-router';
+import { RouterView, useRouter } from 'vue-router';
 import SideMenu from './components/Menus/SideMenu.vue';
 import ButtomMenu from './components/Menus/ButtomMenu.vue';
+import { onMounted } from 'vue';
+
+import { getCompanyData } from './libraries/database';
+import { error } from '@tauri-apps/plugin-log';
+import { ref } from 'vue';
+import { useCompanyDataStore } from './stores/dataStores';
+import { useSettingsStore } from './stores/settingsStore';
+import type { companyData } from './types/databaseTypes';
+
+const debug = ref<companyData[] | undefined>();
+const router = useRouter();
+const companyDataStore = useCompanyDataStore();
+const settingsStore = useSettingsStore();
+
+onMounted(async () => {
+  // Load theme settings
+  settingsStore.init();
+
+  // Load company data
+  try {
+    const initData = await getCompanyData();
+    if (!initData || initData.length === 0) {
+      router.push('/Unternehmensdaten');
+    } else {
+      companyDataStore.compData = initData[0];
+    }
+    debug.value = initData;
+  } catch (e) {
+    error("Problem initializing company Data");
+  }
+});
 
 </script>
 

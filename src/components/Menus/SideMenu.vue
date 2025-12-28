@@ -1,4 +1,7 @@
 <template>
+  <div class="logo-container">
+    <img src="../../assets/logo.png" alt="Logo" class="menu-logo" />
+  </div>
   <PanelMenu :model="menuItems"/>
   <!-- <div class="app-launcher-container">
     <div class="app-launcher-grid">
@@ -58,6 +61,23 @@ console.log(menuItems.value);
 </script>
 
 <style scoped>
+.logo-container {
+  width: 100%;
+  padding: 1.5rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-bottom: 1px solid var(--p-surface-200);
+  margin-bottom: 1rem;
+}
+
+.menu-logo {
+  max-width: 100%;
+  height: auto;
+  max-height: 80px;
+  object-fit: contain;
+}
+
 .app-launcher-container {
   width: 100%;
   padding: 1rem;
