@@ -21,6 +21,17 @@
       "csp": null
     }
   },
+  "plugins": {
+    "sql": {
+      "scope": {
+        "allowed": [
+          {
+            "path": "company.db"
+          }
+        ]
+      }
+    }
+  },
   "bundle": {
     "active": true,
     "targets": "all",
