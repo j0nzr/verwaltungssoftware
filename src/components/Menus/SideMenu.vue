@@ -3,21 +3,6 @@
     <img src="../../assets/logo.png" alt="Logo" class="menu-logo" />
   </div>
   <PanelMenu :model="menuItems"/>
-  <!-- <div class="app-launcher-container">
-    <div class="app-launcher-grid">
-      <div
-        v-for="(item, index) in menuItems"
-        :key="index"
-        class="app-launcher-item"
-        @click="handleItemClick(item)"
-      >
-        <div class="app-launcher-content">
-          <i v-if="item.icon" :class="['app-launcher-icon', item.icon]"></i>
-          <span class="app-launcher-label">{{ item.label }}</span>
-        </div>
-      </div>
-    </div>
-  </div> -->
 </template>
 
 <script setup lang="ts">
@@ -25,39 +10,28 @@ import { useAppListStore } from '../../stores/menuStores';
 import { PanelMenu } from 'primevue';
 import { useRouter } from 'vue-router';
 import { computed } from 'vue';
+import { error } from '@tauri-apps/plugin-log';
 
 const router = useRouter();
 const appListStore = useAppListStore();
 
 // Create menu items with command functions for navigation
-const menuItems = computed(() =>
-  appListStore.mainAppList.map(item => ({
+const menuItems = computed(() => {
+  if(appListStore.currentMenu instanceof Error){
+    error("Problem bei der Einsetzung des Menüs von ");
+  }else {
+    return appListStore.currentMenu.map(item => ({
     ...item,
     command: () => {
       if (item.to) {
-        router.push(item.to);
+        router.push({
+          path: item.to,
+        });
       }
     }
-  }))
+  }))}
+}
 );
-
-console.log(menuItems.value);
-
-// const handleItemClick = (item: MenuItem) => {
-//   if (item.disabled) return;
-
-//   if (item.command) {
-//     item.command({ originalEvent: new Event('click'), item });
-//   }
-
-//   if (item.url) {
-//     if (item.target) {
-//       window.open(item.url, item.target);
-//     } else {
-//       window.location.href = item.url;
-//     }
-//   }
-// };
 </script>
 
 <style scoped>

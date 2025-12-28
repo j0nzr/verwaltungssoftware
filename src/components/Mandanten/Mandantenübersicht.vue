@@ -21,19 +21,15 @@
       @row-click="onRowClick"
       class="clickable-rows"
     >
-      <Column field="id" header="ID" sortable style="width: 15%"></Column>
+
+    <Column v-for="header in tableHeaders" :key="header" :field="header" :header="mdt[header as keyof typeof mdt]" sortable/>
+
+      <!-- <Column field="id" header="ID" sortable style="width: 15%"></Column>
       <Column field="mandantName" header="Mandant-Name" sortable style="width: 20%"></Column>
       <Column field="zusatz" header="Zusatz" sortable style="width: 15%"></Column>
       <Column field="ort" header="Ort" sortable style="width: 15%"></Column>
       <Column field="plz" header="PLZ" sortable style="width: 10%"></Column>
-      <Column field="verwaltungsart" header="Verwaltungsart" sortable style="width: 15%">
-        <template #body="slotProps">
-          <Tag
-            :value="slotProps.data.verwaltungsart"
-            :severity="getVerwaltungsartSeverity(slotProps.data.verwaltungsart)"
-          />
-        </template>
-      </Column>
+      <Column field="verwaltungsart" header="Verwaltungsart" sortable style="width: 15%"></Column> -->
       <Column header="Aktionen" style="width: 10%">
         <template #body="slotProps">
           <Button
@@ -69,12 +65,16 @@ import Database from '@tauri-apps/plugin-sql'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import Button from 'primevue/button'
-import Tag from 'primevue/tag'
 import type { mandant } from '../../types/databaseTypes'
+import { mandanten as mdt } from '../../libraries/databaseHeaders'
 
 const router = useRouter()
 const mandanten = ref<mandant[]>([])
 const loading = ref(false)
+
+const tableHeaders = defineProps<{
+   tableHeader: string
+ }>()
 
 let dbInstance: Database | null = null
 
@@ -89,7 +89,8 @@ const loadMandanten = async () => {
   loading.value = true
   try {
     const db = await getCompanyDb()
-    const result = await db.select<mandant[]>('SELECT * FROM mandanten ORDER BY mandantName')
+    const result = await db.select<mandant[]>(`SELECT ${tableHeaders.tableHeader ? tableHeaders.tableHeader : '*' } FROM mandanten ORDER BY mandantName`)
+    //const result = await db.select<mandant[]>('SELECT * FROM mandanten ORDER BY mandantName')
     mandanten.value = result || []
   } catch (error) {
     console.error('Error loading mandanten:', error)
@@ -108,19 +109,6 @@ const editMandant = (id: string) => {
 
 const onRowClick = (event: any) => {
   editMandant(event.data.id)
-}
-
-const getVerwaltungsartSeverity = (verwaltungsart: string) => {
-  switch (verwaltungsart) {
-    case 'WEG':
-      return 'info'
-    case 'Mietverwaltung':
-      return 'success'
-    case 'Sondereigentum':
-      return 'warn'
-    default:
-      return 'secondary'
-  }
 }
 
 onMounted(() => {

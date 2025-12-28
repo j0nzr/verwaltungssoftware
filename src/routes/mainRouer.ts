@@ -8,7 +8,7 @@ import Mandantendaten from "../components/Mandanten/Mandantendaten.vue";
 const routes = [
     {path: '/', component: Settings},
     {path: '/Unternehmensdaten', component: Unternehmensdaten},
-    {path: '/Mandanten', name: 'MandantenList', component: Mandantenübersicht},
+    {path: '/Mandanten', name: 'MandantenList', component: Mandantenübersicht, props:{ tableHeader: 'mandantName' }},
     {path: '/Mandanten/neu', name: 'MandantCreate', component: Mandantendaten},
     {path: '/Mandanten/:id', name: 'MandantEdit', component: Mandantendaten, props: (route: RouteLocationNormalized) => ({ mandantId: route.params.id as string })}
 ]

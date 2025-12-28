@@ -10,15 +10,18 @@ import { ref } from 'vue';
 import { useCompanyDataStore } from './stores/dataStores';
 import { useSettingsStore } from './stores/settingsStore';
 import type { companyData } from './types/databaseTypes';
+import { useAppListStore } from './stores/menuStores';
 
 const debug = ref<companyData[] | undefined>();
 const router = useRouter();
 const companyDataStore = useCompanyDataStore();
 const settingsStore = useSettingsStore();
+const menuStore = useAppListStore();
 
 onMounted(async () => {
   // Load theme settings
   settingsStore.init();
+  menuStore.init("Start");
 
   // Load company data
   try {

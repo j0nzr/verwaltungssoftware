@@ -20,6 +20,7 @@
     import { ref } from 'vue';
     import { useRouter, useRoute } from 'vue-router';
     import Menubar from 'primevue/menubar';
+    import { useAppListStore } from '../../stores/menuStores';
 
     const router = useRouter();
     const route = useRoute();
@@ -48,6 +49,9 @@
     ]);
 
     const isActiveTab = (item: any) => {
+        if(useAppListStore().activeSection == item.label) {
+            return true
+        }
         if (!item.to) return false;
 
         // Check if current route matches item route
@@ -62,6 +66,7 @@
 
     const handleItemClick = (item: any) => {
         if (item.to && route.path !== item.to) {
+            useAppListStore().activeSection = item.label
             router.push(item.to);
         }
     };
