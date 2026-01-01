@@ -8,5 +8,8 @@ export const mandanten = {
     ort: "Ort",
     verwaltungsart: "Verwaltungsart",
     wirtschaftsjahrBeginn: "Wirtschaftsjahr-Beginn",
-    wirtschaftsjahrEnde: "Wirtschaftsjahr-Ende"
+    wirtschaftsjahrEnde: "Wirtschaftsjahr-Ende",
+    aktuellesWirtschaftsjahr: "Aktuelles Wirtschaftsjahr",
+    summeOffenerPosten: "Summe Offener Posten",
+    bearbeitet: "Zuletzt bearbeitet"
 }
