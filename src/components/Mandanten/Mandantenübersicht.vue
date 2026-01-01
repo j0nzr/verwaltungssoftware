@@ -22,14 +22,8 @@
       class="clickable-rows"
     >
 
-    <Column v-for="header in tableHeaders" :key="header" :field="header" :header="mdt[header as keyof typeof mdt]" sortable/>
+    <Column v-for="header in dataHeaders" :key="header" :field="header" :header="mdt[header as keyof typeof mdt]" sortable/>
 
-      <!-- <Column field="id" header="ID" sortable style="width: 15%"></Column>
-      <Column field="mandantName" header="Mandant-Name" sortable style="width: 20%"></Column>
-      <Column field="zusatz" header="Zusatz" sortable style="width: 15%"></Column>
-      <Column field="ort" header="Ort" sortable style="width: 15%"></Column>
-      <Column field="plz" header="PLZ" sortable style="width: 10%"></Column>
-      <Column field="verwaltungsart" header="Verwaltungsart" sortable style="width: 15%"></Column> -->
       <Column header="Aktionen" style="width: 10%">
         <template #body="slotProps">
           <Button
@@ -38,6 +32,12 @@
             text
             rounded
             @click.stop="editMandant(slotProps.data.id)"
+          /><Button
+            icon="pi pi-trash"
+            severity="info"
+            text
+            rounded
+            @click.stop="deleteMandant(slotProps.data.id)"
           />
         </template>
       </Column>
@@ -67,14 +67,23 @@ import Column from 'primevue/column'
 import Button from 'primevue/button'
 import type { mandant } from '../../types/databaseTypes'
 import { mandanten as mdt } from '../../libraries/databaseHeaders'
+import { error, info } from '@tauri-apps/plugin-log'
 
 const router = useRouter()
 const mandanten = ref<mandant[]>([])
 const loading = ref(false)
 
+
+/*
+ * Da die Komponente möglichst flexibel verwendet werden soll,
+ * werden die Headers als Prop übergeben. Dies passiert entweder
+ * programmatisch über die router.push funktion oder über die 
+ * Verlinkung im Pinia Store 
+ */
 const tableHeaders = defineProps<{
    tableHeader: string
  }>()
+ const dataHeaders = ref<string[]>()
 
 let dbInstance: Database | null = null
 
@@ -88,12 +97,23 @@ const getCompanyDb = async () => {
 const loadMandanten = async () => {
   loading.value = true
   try {
+    dataHeaders.value = tableHeaders.tableHeader.split(',')
+    dataHeaders.value.forEach((h, index) => {
+      h = h.trimEnd()
+      h = h.trimStart()
+      dataHeaders.value![index] = h // Das dataHeaders.value definiert sein muss ergibt sich direkt aus der forEach-Loop!
+    })
+  } catch(e) {
+    error(`Problem beim Setzen des Tabellenheader in ${router.currentRoute}: ${e}`)
+  }
+
+  try {
     const db = await getCompanyDb()
     const result = await db.select<mandant[]>(`SELECT ${tableHeaders.tableHeader ? tableHeaders.tableHeader : '*' } FROM mandanten ORDER BY mandantName`)
     //const result = await db.select<mandant[]>('SELECT * FROM mandanten ORDER BY mandantName')
     mandanten.value = result || []
-  } catch (error) {
-    console.error('Error loading mandanten:', error)
+  } catch (e) {
+    error(`Error loading mandanten: ${e}`)
   } finally {
     loading.value = false
   }
@@ -105,6 +125,16 @@ const createNewMandant = () => {
 
 const editMandant = (id: string) => {
   router.push({ name: 'MandantEdit', params: { id } })
+}
+
+const deleteMandant = async (id: string) => {
+  try {
+    const db = await getCompanyDb()
+    const result = await db.execute(`DELETE FROM mandanten WHERE id='${id}'`)
+    info(`Mandant versucht zu löschen. Ergebnis: ${JSON.stringify(result)}`)
+  } catch (e) {
+    error(<string>e); // Errors sind üblicherweise strings
+  }
 }
 
 const onRowClick = (event: any) => {
