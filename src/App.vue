@@ -33,7 +33,7 @@ onMounted(async () => {
     }
     debug.value = initData;
   } catch (e) {
-    error("Problem initializing company Data");
+    error(`Problem initializing company Data: ${e}`);
   }
 });
 
