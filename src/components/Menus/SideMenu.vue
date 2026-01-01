@@ -15,23 +15,30 @@ import { error } from '@tauri-apps/plugin-log';
 const router = useRouter();
 const appListStore = useAppListStore();
 
+// Recursive function to add command to all menu items (including nested ones)
+const addCommandToMenuItem = (item: any): any => {
+  const menuItem = {
+    ...item,
+    command: item.to ? () => router.push({ path: item.to }) : undefined
+  };
+
+  // Recursively process nested items if they exist
+  if (item.items && Array.isArray(item.items)) {
+    menuItem.items = item.items.map(addCommandToMenuItem);
+  }
+
+  return menuItem;
+};
+
 // Create menu items with command functions for navigation
 const menuItems = computed(() => {
   if(appListStore.currentMenu instanceof Error){
-    error("Problem bei der Einsetzung des Menüs von ");
-  }else {
-    return appListStore.currentMenu.map(item => ({
-    ...item,
-    command: () => {
-      if (item.to) {
-        router.push({
-          path: item.to,
-        });
-      }
-    }
-  }))}
-}
-);
+    error(`Problem bei der Einsetzung des Seiten-Menüs von ${appListStore.currentMenu}`);
+    return [];
+  }
+
+  return appListStore.currentMenu.map(addCommandToMenuItem);
+});
 </script>
 
 <style scoped>
