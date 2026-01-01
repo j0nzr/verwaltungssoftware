@@ -28,7 +28,7 @@ export const useAppListStore = defineStore('appList' , () => {
         {
             label: 'Buchhaltung',
             icon: 'pi pi-pen-to-square',
-            to: '' 
+            to: '/Finanzen/Buchhaltung'
         },
         {
             label: 'Offene Posten Liste',
