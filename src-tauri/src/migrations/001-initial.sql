@@ -27,7 +27,11 @@ create table mandanten (
     verwaltungsart text not null,
     wirtschaftsjahrBeginn text not null,
     wirtschaftsjahrEnde text not null,
+    aktuellesWirtschaftsjahr text,
+    summeOffenerPosten number,
+    bearbeitet text not null,
     
     check (verwaltungsart in ('WEG', 'Mietverwaltung', 'Sondereigentum')),
     check (length(plz) = 5 and plz glob '[0-9][0-9][0-9][0-9][0-9]')
+    check (length(aktuellesWirtschaftsjahr) = 4 or aktuellesWirtschaftsjahr=null)
 );

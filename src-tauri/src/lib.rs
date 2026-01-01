@@ -1,4 +1,4 @@
-use tauri_plugin_sql::{Builder, Migration, MigrationKind};
+use tauri_plugin_sql::{Migration, MigrationKind};
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
@@ -11,7 +11,7 @@ pub fn run() {
     let migrations = vec![Migration {
         version: 1,
         description: "create company db",
-        sql: include_str!("./migrations/initial.sql"),
+        sql: include_str!("./migrations/001-initial.sql"),
         kind: MigrationKind::Up,
     }];
 
