@@ -31,7 +31,7 @@
             severity="info"
             text
             rounded
-            @click.stop="editMandant(slotProps.data.id)"
+            @click.stop="enterMandant(slotProps.data.id)"
           /><Button
             icon="pi pi-trash"
             severity="info"
@@ -80,10 +80,19 @@ const loading = ref(false)
  * programmatisch über die router.push funktion oder über die 
  * Verlinkung im Pinia Store 
  */
-const tableHeaders = defineProps<{
-   tableHeader: string
+const props = defineProps<{
+   tableHeader: string,
+   goTo: string
  }>()
- const dataHeaders = ref<string[]>()
+const dataHeaders = ref<string[]>()
+
+/**
+ * Über diesen Prop soll festgelegt werden  
+ * wo der Nutzer hin gesendet wird
+ * wenn er auf eine Reihe klickt
+ */
+
+const goTo = props.goTo 
 
 let dbInstance: Database | null = null
 
@@ -97,7 +106,7 @@ const getCompanyDb = async () => {
 const loadMandanten = async () => {
   loading.value = true
   try {
-    dataHeaders.value = tableHeaders.tableHeader.split(',')
+    dataHeaders.value = props.tableHeader.split(',')
     dataHeaders.value.forEach((h, index) => {
       h = h.trimEnd()
       h = h.trimStart()
@@ -109,7 +118,7 @@ const loadMandanten = async () => {
 
   try {
     const db = await getCompanyDb()
-    const result = await db.select<mandant[]>(`SELECT ${tableHeaders.tableHeader ? tableHeaders.tableHeader : '*' } FROM mandanten ORDER BY mandantName`)
+    const result = await db.select<mandant[]>(`SELECT ${props.tableHeader ? props.tableHeader : '*' } FROM mandanten ORDER BY mandantName`)
     //const result = await db.select<mandant[]>('SELECT * FROM mandanten ORDER BY mandantName')
     mandanten.value = result || []
   } catch (e) {
@@ -123,8 +132,8 @@ const createNewMandant = () => {
   router.push({ name: 'MandantCreate' })
 }
 
-const editMandant = (id: string) => {
-  router.push({ name: 'MandantEdit', params: { id } })
+const enterMandant = (id: string) => {
+  router.push({ name: goTo, params: { id } })
 }
 
 const deleteMandant = async (id: string) => {
@@ -138,7 +147,7 @@ const deleteMandant = async (id: string) => {
 }
 
 const onRowClick = (event: any) => {
-  editMandant(event.data.id)
+  enterMandant(event.data.id)
 }
 
 onMounted(() => {
