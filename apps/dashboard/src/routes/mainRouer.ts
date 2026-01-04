@@ -11,7 +11,7 @@ const routes = [
     {path: '/Mandanten', name: 'MandantenList', component: Mandantenübersicht, props:{ tableHeader: 'id, mandantName', goTo: 'MandantEdit' }},
     {path: '/Mandanten/neu', name: 'MandantCreate', component: Mandantendaten},
     {path: '/Mandanten/:id', name: 'MandantEdit', component: Mandantendaten, props: (route: RouteLocationNormalized) => ({ mandantId: route.params.id as string })},
-    {path: '/Finanzen/Buchhaltung', name: "FinanzenOverview", component: Mandantenübersicht, props: {tableHeader: 'id, mandantName, aktuellesWirtschaftsjahr', goTo: 'MandantEdit'}}
+    {path: '/Finanzen/Buchhaltung', name: "FinanzenOverview", component: Mandantenübersicht, props: {tableHeader: 'id, mandantName, aktuellesWirtschaftsjahr', goTo: 'MandantEdit'}},
 
 ]
 

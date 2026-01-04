@@ -1,16 +1,13 @@
 {
-  "name": "verwaltungssoftware",
-  "private": true,
+  "name": "@verwaltungssoftware/dashboard",
   "version": "0.1.0",
+  "private": true,
   "type": "module",
-  "packageManager": "pnpm@10.26.2",
   "scripts": {
-    "dev:dashboard": "pnpm --filter @verwaltungssoftware/dashboard dev",
-    "dev:finanzen": "pnpm --filter @verwaltungssoftware/finanzen dev",
-    "build:apps": "turbo run build --filter='./apps/*'",
-    "check-types": "turbo run check-types",
-    "tauri:dev": "tauri dev",
-    "tauri:build": "pnpm build:apps && tauri build"
+    "dev": "vite --port 1420",
+    "build": "vite build --outDir ../../dist/dashboard",
+    "preview": "vite preview",
+    "check-types": "vue-tsc --noEmit"
   },
   "dependencies": {
     "@primeuix/themes": "^2.0.2",
@@ -22,16 +19,13 @@
     "pinia": "^3.0.4",
     "primeicons": "^7.0.0",
     "primevue": "^4.5.4",
-    "turborepo": "^0.0.1",
     "vee-validate": "^4.15.1",
     "vue": "^3.5.13",
     "vue-router": "^4.6.4",
     "vue-use": "^0.2.0"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2",
     "@vitejs/plugin-vue": "^5.2.1",
-    "turbo": "^2.7.2",
     "typescript": "~5.6.2",
     "vite": "^6.0.3",
     "vue-tsc": "^2.1.10"
